@@ -1,0 +1,34 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  backend:
+    name: Trigger backend (Render) deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call Render Deploy Hook
+        env:
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$HOOK" ]; then
+            echo "RENDER_DEPLOY_HOOK_URL secret not set — skipping (Vercel side handles client auto-deploy)."
+            exit 0
+          fi
+          echo "Triggering Render deploy hook..."
+          curl -fSL -X POST "$HOOK"
+
+  frontend:
+    name: Hint (Vercel auto-deploy)
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "Frontend (client/) is auto-deployed by Vercel's GitHub integration on push to main."
+          echo "Set Vercel project root to 'client' and VITE_API_BASE_URL to your backend URL."
