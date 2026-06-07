@@ -20,7 +20,8 @@ AMBER = RGBColor(0xF5, 0x9E, 0x0B)
 EMERALD = RGBColor(0x10, 0xB9, 0x81)
 ROSE = RGBColor(0xE1, 0x1D, 0x48)
 
-HANGUL_FONT = "맑은 고딕"
+HANGUL_FONT = "맑은 고딕"        # Windows 한국어 기본
+LATIN_FONT = "Arial"              # 영문/숫자 — cross-platform
 SLIDE_W = Inches(13.333)
 SLIDE_H = Inches(7.5)
 
@@ -29,16 +30,25 @@ NS = "http://schemas.openxmlformats.org/drawingml/2006/main"
 
 # ─────────────── 헬퍼 ───────────────
 def set_font(run, *, size=14, bold=False, color=DARK, font=HANGUL_FONT, italic=False):
-    run.font.name = font
+    """라틴은 Arial, 동아시아는 맑은 고딕 → Windows·macOS 양쪽에서 일관."""
+    # 코드 폰트(Consolas 등)는 latin/ea 둘 다 동일 폰트로
+    latin_face = font if font in ("Consolas", "Courier New", "Menlo") else LATIN_FONT
+    run.font.name = latin_face   # latin
     run.font.size = Pt(size)
     run.font.bold = bold
     run.font.italic = italic
     run.font.color.rgb = color
     rPr = run._r.get_or_add_rPr()
+    # East Asia
     ea = rPr.find(f"{{{NS}}}ea")
     if ea is None:
         ea = etree.SubElement(rPr, f"{{{NS}}}ea")
-    ea.set("typeface", font)
+    ea.set("typeface", font if font not in ("Consolas", "Courier New", "Menlo") else font)
+    # Complex script
+    cs = rPr.find(f"{{{NS}}}cs")
+    if cs is None:
+        cs = etree.SubElement(rPr, f"{{{NS}}}cs")
+    cs.set("typeface", latin_face)
 
 
 def add_text(slide, *, left, top, width, height, text,
@@ -525,33 +535,35 @@ def slide_cicd(pres, page, total):
     add_header(s, "CI/CD 자동 배포 파이프라인", "조건 ① — git push → 자동 빌드 · 자동 배포", page, total)
 
     # 흐름도: PR → CI / main push → CI + auto deploy
-    add_text(s, left=Inches(0.6), top=Inches(1.15), width=Inches(12.1), height=Inches(0.4),
+    add_text(s, left=Inches(0.6), top=Inches(1.1), width=Inches(12.1), height=Inches(0.4),
              text="git push origin main", size=14, bold=True, color=NAVY)
 
     # 박스 3개 흐름
     flow = [
-        ("GitHub Actions\nci.yml",       "server / client / docker compose\n빌드 + node --check + dist 아티팩트", NAVY),
-        ("Vercel\nGitHub 연동",          "client/ 자동 감지\n빌드 + Edge 배포 + alias 유지",                   AMBER),
-        ("Render\nautoDeploy: yes",      "server/Dockerfile 자동 감지\n빌드 + migrate deploy + 컨테이너 부팅", EMERALD),
+        ("GitHub Actions",     "ci.yml",            "server / client / docker compose\n빌드 + node --check + dist 아티팩트", NAVY),
+        ("Vercel",             "GitHub 연동",        "client/ 자동 감지\n빌드 + Edge 배포 + alias 유지",                   AMBER),
+        ("Render",             "autoDeploy: yes",    "server/Dockerfile 자동 감지\n빌드 + migrate deploy + 컨테이너 부팅", EMERALD),
     ]
     bw = Inches(3.9)
     bh = Inches(2.1)
-    y = Inches(1.7)
+    y = Inches(1.85)
     x0 = Inches(0.6)
     gap = Inches(0.2)
     centers = []
-    for i, (title, desc, color) in enumerate(flow):
+    for i, (title, sub, desc, color) in enumerate(flow):
         x = x0 + (bw + gap) * i
         add_rect(s, x, y, bw, bh, fill=WHITE, line=color, line_pt=2)
-        add_text(s, left=x + Inches(0.2), top=y + Inches(0.2), width=bw - Inches(0.4), height=Inches(0.8),
-                 text=title, size=14, bold=True, color=color, align=PP_ALIGN.CENTER)
+        add_text(s, left=x + Inches(0.2), top=y + Inches(0.15), width=bw - Inches(0.4), height=Inches(0.45),
+                 text=title, size=15, bold=True, color=color, align=PP_ALIGN.CENTER)
+        add_text(s, left=x + Inches(0.2), top=y + Inches(0.62), width=bw - Inches(0.4), height=Inches(0.35),
+                 text=sub, size=11, color=GREY, align=PP_ALIGN.CENTER, italic=True)
         add_text(s, left=x + Inches(0.2), top=y + Inches(1.05), width=bw - Inches(0.4), height=Inches(0.95),
                  text=desc, size=11, color=DARK, align=PP_ALIGN.CENTER)
         centers.append((x + bw // 2, y))
 
-    # 위에서 화살표
+    # 위에서 화살표 (텍스트와 분리)
     for cx, cy in centers:
-        add_arrow(s, cx, Inches(1.45), cx, cy, color=NAVY, weight=1.4)
+        add_arrow(s, cx, Inches(1.55), cx, cy, color=NAVY, weight=1.4)
 
     # 하단: 검증/혜택
     add_rect(s, Inches(0.6), Inches(4.2), Inches(6.0), Inches(2.6), fill=LIGHT, line=NAVY)

@@ -6,8 +6,8 @@ from pptx.enum.shapes import MSO_SHAPE
 from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
 
 
-HANGUL_FONT = "맑은 고딕"        # Windows 기본
-HANGUL_FONT_FALLBACK = "Apple SD Gothic Neo"  # mac 폴백 (East Asia 자동)
+HANGUL_FONT = "맑은 고딕"        # Windows 한국어 기본
+LATIN_FONT = "Arial"              # 영문/숫자 — cross-platform
 
 NAVY = RGBColor(0x1D, 0x4E, 0xD8)
 DARK = RGBColor(0x0F, 0x17, 0x2A)
@@ -18,11 +18,11 @@ AMBER = RGBColor(0xF5, 0x9E, 0x0B)
 
 
 def set_font(run, *, size=14, bold=False, color=DARK, font=HANGUL_FONT):
-    run.font.name = font
+    """라틴은 Arial, 동아시아는 맑은 고딕 → Windows·macOS 양쪽에서 일관 표시."""
+    run.font.name = LATIN_FONT
     run.font.size = Pt(size)
     run.font.bold = bold
     run.font.color.rgb = color
-    # East Asia font 별도 설정
     rPr = run._r.get_or_add_rPr()
     from lxml import etree
     ns = 'http://schemas.openxmlformats.org/drawingml/2006/main'
@@ -30,6 +30,10 @@ def set_font(run, *, size=14, bold=False, color=DARK, font=HANGUL_FONT):
     if ea is None:
         ea = etree.SubElement(rPr, f'{{{ns}}}ea')
     ea.set('typeface', font)
+    cs = rPr.find(f'{{{ns}}}cs')
+    if cs is None:
+        cs = etree.SubElement(rPr, f'{{{ns}}}cs')
+    cs.set('typeface', LATIN_FONT)
 
 
 def add_text(slide, *, left, top, width, height, text, size=14, bold=False,
